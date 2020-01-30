@@ -127,7 +127,7 @@ class FPN(nn.Module):
         c4_out = x
         x = self.C5(x)
         p5_out = self.P5_conv1(x)
-        
+
         if self.bilinear_upsampling:
             p4_out = self.P4_conv1(c4_out) + F.upsample(p5_out, scale_factor=2, mode='bilinear')
             p3_out = self.P3_conv1(c3_out) + F.upsample(p4_out, scale_factor=2, mode='bilinear')
@@ -310,7 +310,7 @@ def proposal_layer(inputs, proposal_count, nms_threshold, anchors, config=None):
 
     ## Box deltas [batch, num_rois, 4]
     deltas = inputs[1]
-    
+
     std_dev = Variable(torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float(), requires_grad=False)
     if config.GPU_COUNT:
         std_dev = std_dev.cuda()
@@ -343,8 +343,8 @@ def proposal_layer(inputs, proposal_count, nms_threshold, anchors, config=None):
     keep = keep[:proposal_count]
     boxes = boxes[keep, :]
 
-    
-    
+
+
     ## Normalize dimensions to range of 0 to 1.
     norm = Variable(torch.from_numpy(np.array([height, width, height, width])).float(), requires_grad=False)
     if config.GPU_COUNT:
@@ -605,7 +605,7 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, gt_param
         roi_gt_boxes = gt_boxes[roi_gt_box_assignment.data,:]
         roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment.data]
         roi_gt_parameters = gt_parameters[roi_gt_box_assignment.data]
-        
+
         ## Compute bbox refinement for positive ROIs
         deltas = Variable(utils.box_refinement(positive_rois.data, roi_gt_boxes.data), requires_grad=False)
         std_dev = Variable(torch.from_numpy(config.BBOX_STD_DEV).float(), requires_grad=False)
@@ -640,8 +640,8 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, gt_param
             parameters = Variable(CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)(roi_masks[:, :, :, 1].contiguous().unsqueeze(1), boxes, box_ids).data, requires_grad=False).squeeze(1)
             masks = torch.stack([masks, parameters], dim=-1)
         else:
-            masks = Variable(CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)(roi_masks.unsqueeze(1), boxes, box_ids).data, requires_grad=False).squeeze(1)            
-            masks = torch.round(masks)            
+            masks = Variable(CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)(roi_masks.unsqueeze(1), boxes, box_ids).data, requires_grad=False).squeeze(1)
+            masks = torch.round(masks)
             pass
 
         ## Threshold mask pixels at 0.5 to have GT masks be 0 or 1 to use with
@@ -669,7 +669,7 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, gt_param
 
     #print('count', positive_count, negative_count)
     #print(roi_gt_class_ids)
-    
+
     ## Append negative ROIs and pad bbox deltas and masks that
     ## are not used for negative ROIs with zeros.
     if positive_count > 0 and negative_count > 0:
@@ -690,7 +690,7 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, gt_param
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         masks = torch.cat([masks, zeros], dim=0)
-        
+
         zeros = Variable(torch.zeros(negative_count, config.NUM_PARAMETERS), requires_grad=False)
         if config.GPU_COUNT:
             zeros = zeros.cuda()
@@ -715,7 +715,7 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, gt_param
         zeros = Variable(torch.zeros(negative_count, config.NUM_PARAMETERS), requires_grad=False)
         if config.GPU_COUNT:
             zeros = zeros.cuda()
-        roi_gt_parameters = torch.cat([roi_gt_parameters, zeros], dim=0)        
+        roi_gt_parameters = torch.cat([roi_gt_parameters, zeros], dim=0)
     else:
         rois = Variable(torch.FloatTensor(), requires_grad=False)
         roi_gt_class_ids = Variable(torch.IntTensor(), requires_grad=False)
@@ -761,7 +761,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
     """
 
     ## Class IDs per ROI
-    
+
     if len(probs.shape) == 1:
         class_ids = probs.long()
     else:
@@ -773,7 +773,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
     idx = torch.arange(class_ids.size()[0]).long()
     if config.GPU_COUNT:
         idx = idx.cuda()
-        
+
     if len(probs.shape) == 1:
         class_scores = torch.ones(class_ids.shape)
         deltas_specific = deltas
@@ -789,7 +789,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
     std_dev = Variable(torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float(), requires_grad=False)
     if config.GPU_COUNT:
         std_dev = std_dev.cuda()
-        
+
     refined_rois = apply_box_deltas(rois, deltas_specific * std_dev)
     ## Convert coordiates to image domain
     height, width = config.IMAGE_SHAPE[:2]
@@ -802,7 +802,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
 
     ## Round and cast to int since we're deadling with pixels now
     refined_rois = torch.round(refined_rois)
-    
+
     ## TODO: Filter out boxes with zero area
 
     ## Filter out background boxes
@@ -820,7 +820,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
         else:
             return torch.zeros((0, 10)).cuda()
         pass
-        
+
     keep = torch.nonzero(keep_bool)[:,0]
 
     if use_nms == 2:
@@ -835,10 +835,10 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
         ix_scores = pre_nms_scores
         ix_scores, order = ix_scores.sort(descending=True)
         ix_rois = ix_rois[order.data,:]
-        
+
         nms_keep = nms(torch.cat((ix_rois, ix_scores.unsqueeze(1)), dim=1).data, config.DETECTION_NMS_THRESHOLD)
         nms_keep = keep[ixs[order[nms_keep].data].data]
-        keep = intersect1d(keep, nms_keep)        
+        keep = intersect1d(keep, nms_keep)
     elif use_nms == 1:
         ## Apply per-class NMS
         pre_nms_class_ids = class_ids[keep.data]
@@ -889,7 +889,7 @@ def refine_detections(rois, probs, deltas, parameters, window, config, return_in
         ori_rois = torch.round(ori_rois)
         ori_rois = ori_rois[keep.data]
         return result, keep.data, ori_rois
-    
+
     return result
 
 
@@ -911,7 +911,7 @@ def detection_layer(config, rois, mrcnn_class, mrcnn_bbox, mrcnn_parameter, imag
             return torch.zeros(0), torch.zeros(0), torch.zeros(0)
         else:
             return torch.zeros(0)
-        
+
     return refine_detections(rois, mrcnn_class, mrcnn_bbox, mrcnn_parameter, window, config, return_indices=return_indices, use_nms=use_nms, one_hot=one_hot)
 
 
@@ -998,7 +998,7 @@ class Classifier(nn.Module):
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
         self.debug = debug
-        if self.debug:        
+        if self.debug:
             self.linear_parameters = nn.Linear(3, num_classes * self.num_parameters)
         else:
             self.linear_parameters = nn.Linear(1024, num_classes * self.num_parameters)
@@ -1025,12 +1025,12 @@ class Classifier(nn.Module):
         if self.debug:
             x = gt
             pass
-        
+
         mrcnn_parameters = self.linear_parameters(x)
-        
+
         if self.debug:
             pass
-        
+
         mrcnn_parameters = mrcnn_parameters.view(mrcnn_parameters.size()[0], -1, self.num_parameters)
         if pool_features:
             return [mrcnn_class_logits, mrcnn_probs, mrcnn_bbox, mrcnn_parameters, roi_features]
@@ -1090,7 +1090,7 @@ class Mask(nn.Module):
 class Depth(nn.Module):
     def __init__(self, num_output_channels=1):
         super(Depth, self).__init__()
-        self.num_output_channels = num_output_channels        
+        self.num_output_channels = num_output_channels
         self.conv1 = nn.Sequential(
             nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(128, eps=0.001, momentum=0.01),
@@ -1116,7 +1116,7 @@ class Depth(nn.Module):
             nn.BatchNorm2d(128, eps=0.001, momentum=0.01),
             nn.ReLU(inplace=True)
         )
-        
+
         self.deconv1 = nn.Sequential(
             torch.nn.Upsample(scale_factor=2, mode='nearest'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
@@ -1147,12 +1147,12 @@ class Depth(nn.Module):
             nn.BatchNorm2d(64, eps=0.001, momentum=0.01),
             nn.ReLU(inplace=True)
         )
-        
+
         self.depth_pred = nn.Conv2d(64, num_output_channels, kernel_size=3, stride=1, padding=1)
 
         self.crop = True
         return
-    
+
     def forward(self, feature_maps):
         if self.crop:
             padding = 5
@@ -1168,7 +1168,7 @@ class Depth(nn.Module):
         x = self.deconv4(torch.cat([self.conv4(feature_maps[3]), x], dim=1))
         x = self.deconv5(torch.cat([self.conv5(feature_maps[4]), x], dim=1))
         x = self.depth_pred(x)
-        
+
         if self.crop:
             x = torch.nn.functional.interpolate(x, size=(480, 640), mode='bilinear')
             zeros = torch.zeros((len(x), self.num_output_channels, 80, 640)).cuda()
@@ -1179,8 +1179,8 @@ class Depth(nn.Module):
         return x
 
 
-   
-   
+
+
 ############################################################
 #  Loss Functions
 ############################################################
@@ -1440,7 +1440,7 @@ class MaskRCNN(nn.Module):
 
         ## Coordinate feature
         self.coordinates = nn.Conv2d(3, 64, kernel_size=1, stride=1)
-        
+
         ## FPN Classifier
         self.debug = False
         self.classifier = Classifier(256, config.POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES, config.NUM_PARAMETERS, debug=self.debug)
@@ -1449,12 +1449,12 @@ class MaskRCNN(nn.Module):
         self.mask = Mask(config, 256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
         if self.config.PREDICT_DEPTH:
-            if self.config.PREDICT_BOUNDARY:            
+            if self.config.PREDICT_BOUNDARY:
                 self.depth = Depth(num_output_channels=3)
             else:
                 self.depth = Depth(num_output_channels=1)
                 pass
-            pass        
+            pass
 
         ## Fix batch norm layers
         def set_bn_fix(m):
@@ -1470,7 +1470,7 @@ class MaskRCNN(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform(m.weight)
+                nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
@@ -1618,7 +1618,7 @@ class MaskRCNN(nn.Module):
 
         if len(detections[0]) == 0:
             return [{'rois': [], 'class_ids': [], 'scores': [], 'masks': [], 'parameters': []}]
-        
+
         ## Convert to numpy
         detections = detections.data.cpu().numpy()
         mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).data.cpu().numpy()
@@ -1634,7 +1634,7 @@ class MaskRCNN(nn.Module):
                 "class_ids": final_class_ids,
                 "scores": final_scores,
                 "masks": final_masks,
-                "parameters": final_parameters,                
+                "parameters": final_parameters,
             })
         return results
 
@@ -1673,14 +1673,14 @@ class MaskRCNN(nn.Module):
         else:
             depth_np = torch.ones((1, self.config.IMAGE_MAX_DIM, self.config.IMAGE_MAX_DIM)).cuda()
             pass
-        
+
         ranges = self.config.getRanges(input[-1]).transpose(1, 2).transpose(0, 1)
         zeros = torch.zeros(3, (self.config.IMAGE_MAX_DIM - self.config.IMAGE_MIN_DIM) // 2, self.config.IMAGE_MAX_DIM).cuda()
         ranges = torch.cat([zeros, ranges, zeros], dim=1)
         ranges = torch.nn.functional.interpolate(ranges.unsqueeze(0), size=(160, 160), mode='bilinear')
         ranges = self.coordinates(ranges * 10)
-        
-        
+
+
         ## Loop through pyramid layers
         layer_outputs = []  ## list of lists
         for p in rpn_feature_maps:
@@ -1704,7 +1704,7 @@ class MaskRCNN(nn.Module):
                                  nms_threshold=self.config.RPN_NMS_THRESHOLD,
                                  anchors=self.anchors,
                                  config=self.config)
-        
+
         if mode == 'inference':
             ## Network Heads
             ## Proposal classifier and BBox regressor heads
@@ -1742,7 +1742,7 @@ class MaskRCNN(nn.Module):
             gt_boxes = input[3]
             gt_masks = input[4]
             gt_parameters = input[5]
-            
+
             ## Normalize coordinates
             h, w = self.config.IMAGE_SHAPE[:2]
             scale = Variable(torch.from_numpy(np.array([h, w, h, w])).float(), requires_grad=False)
@@ -1774,18 +1774,18 @@ class MaskRCNN(nn.Module):
                 ## Proposal classifier and BBox regressor heads
                 #print([maps.shape for maps in mrcnn_feature_maps], target_parameters.shape)
                 mrcnn_class_logits, mrcnn_class, mrcnn_bbox, mrcnn_parameters = self.classifier(mrcnn_feature_maps, rois, ranges, target_parameters)
-                
+
                 ## Create masks for detections
                 mrcnn_mask, _ = self.mask(mrcnn_feature_maps, rois)
 
             return [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, rois, depth_np]
-        
+
         elif mode in ['training_detection', 'inference_detection']:
             gt_class_ids = input[2]
             gt_boxes = input[3]
             gt_masks = input[4]
             gt_parameters = input[5]
-            
+
             ## Normalize coordinates
             h, w = self.config.IMAGE_SHAPE[:2]
             scale = Variable(torch.from_numpy(np.array([h, w, h, w])).float(), requires_grad=False)
@@ -1793,12 +1793,12 @@ class MaskRCNN(nn.Module):
                 scale = scale.cuda()
 
             gt_boxes = gt_boxes / scale
-                        
+
             ## Generate detection targets
             ## Subsamples proposals and generates target outputs for training
             ## Note that proposal class IDs, gt_boxes, and gt_masks are zero
             ## padded. Equally, returned rois and targets are zero padded.
-            
+
             rois, target_class_ids, target_deltas, target_mask, target_parameters = \
                 detection_target_layer(rpn_rois, gt_class_ids, gt_boxes, gt_masks, gt_parameters, self.config)
 
@@ -1833,29 +1833,29 @@ class MaskRCNN(nn.Module):
                 ## Add back batch dimension
                 ## Create masks for detections
                 detections, indices, _ = detection_layer(self.config, rpn_rois, mrcnn_class_final, mrcnn_bbox_final, mrcnn_parameters_final, image_metas, return_indices=True, use_nms=use_nms)
-                if len(detections) > 0:                
-                    detection_boxes = detections[:, :4] / scale                
+                if len(detections) > 0:
+                    detection_boxes = detections[:, :4] / scale
                     detection_boxes = detection_boxes.unsqueeze(0)
                     detection_masks, _ = self.mask(mrcnn_feature_maps, detection_boxes)
                     roi_features = roi_features[indices]
                     pass
             else:
                 mrcnn_class_logits_final, mrcnn_class_final, mrcnn_bbox_final, mrcnn_parameters_final = mrcnn_class_logits, mrcnn_class, mrcnn_bbox, mrcnn_parameters
-                
+
                 rpn_rois = rois
                 detections, indices, _ = detection_layer(self.config, rpn_rois, mrcnn_class_final, mrcnn_bbox_final, mrcnn_parameters_final, image_metas, return_indices=True, use_nms=use_nms)
 
                 if len(detections) > 0:
                     detection_boxes = detections[:, :4] / scale
-                    detection_boxes = detection_boxes.unsqueeze(0)              
+                    detection_boxes = detection_boxes.unsqueeze(0)
                     detection_masks, _ = self.mask(mrcnn_feature_maps, detection_boxes)
-                    roi_features = roi_features[indices]                    
+                    roi_features = roi_features[indices]
                     pass
                 pass
 
-            valid = False                
+            valid = False
             if len(detections) > 0:
-                positive_rois = detection_boxes.squeeze(0)                
+                positive_rois = detection_boxes.squeeze(0)
 
                 gt_class_ids = gt_class_ids.squeeze(0)
                 gt_boxes = gt_boxes.squeeze(0)
@@ -1938,13 +1938,13 @@ class MaskRCNN(nn.Module):
                     pass
                 pass
 
-            
+
             info = [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, detections, detection_masks, roi_gt_parameters, roi_gt_masks, rpn_rois, roi_features, roi_indices]
             if return_feature_map:
                 feature_map = mrcnn_feature_maps
                 info.append(feature_map)
                 pass
-            
+
             info.append(depth_np)
             if self.config.PREDICT_BOUNDARY:
                 info.append(boundary)
@@ -2028,7 +2028,7 @@ def unmold_detections(config, detections, mrcnn_mask, image_shape, window, debug
         masks = mrcnn_mask[np.arange(N), :, :, class_ids]
         pass
 
-    
+
     ## Compute scale and shift to translate coordinates to image domain.
     h_scale = image_shape[0] / (window[2] - window[0])
     w_scale = image_shape[1] / (window[3] - window[1])
@@ -2039,14 +2039,14 @@ def unmold_detections(config, detections, mrcnn_mask, image_shape, window, debug
 
     ## Translate bounding boxes to image domain
     boxes = np.multiply(boxes - shifts, scales).astype(np.int32)
-    
+
     if debug:
         print(masks.shape, boxes.shape)
         for maskIndex, mask in enumerate(masks):
             print(maskIndex, boxes[maskIndex].astype(np.int32))
             cv2.imwrite('test/local_mask_' + str(maskIndex) + '.png', (mask * 255).astype(np.uint8))
             continue
-    
+
     ## Filter out detections with zero area. Often only happens in early
     ## stages of training when the network weights are still a bit random.
     exclude_ix = np.where(
@@ -2056,7 +2056,7 @@ def unmold_detections(config, detections, mrcnn_mask, image_shape, window, debug
         class_ids = np.delete(class_ids, exclude_ix, axis=0)
         scores = np.delete(scores, exclude_ix, axis=0)
         masks = np.delete(masks, exclude_ix, axis=0)
-        parameters = np.delete(parameters, exclude_ix, axis=0)        
+        parameters = np.delete(parameters, exclude_ix, axis=0)
         N = class_ids.shape[0]
 
     ## Resize masks to original image size and set boundary threshold.
@@ -2075,7 +2075,7 @@ def unmold_detections(config, detections, mrcnn_mask, image_shape, window, debug
             continue
         pass
     return boxes, class_ids, scores, full_masks, parameters
-    
+
 def compose_image_meta(image_id, image_shape, window, active_class_ids):
     """Takes attributes of an image and puts them in one 1D array. Use
     parse_image_meta() to parse the values back.
